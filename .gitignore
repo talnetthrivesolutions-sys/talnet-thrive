@@ -1,0 +1,20 @@
+node_modules
+
+# ── Environment secrets — never commit real values ───────────────────────────
+.env
+.env.local
+.env.production
+.env*.local
+
+# ── Prisma generated client (rebuilt in CI via `prisma generate`) ─────────────
+/app/generated/prisma
+
+# ── Next.js build output ──────────────────────────────────────────────────────
+.next/
+out/
+
+# ── PWA service-worker files (regenerated on every build by next-pwa) ─────────
+public/sw.js
+public/sw.js.map
+public/workbox-*.js
+public/workbox-*.js.map

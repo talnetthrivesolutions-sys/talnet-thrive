@@ -1,0 +1,142 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #0f172a;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Marquee animation for trust banner ── */
+@keyframes marquee {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  animation: marquee 36s linear infinite;
+  will-change: transform;
+}
+
+/* ── Pulse ring for Explore button ── */
+@keyframes ring-pulse {
+  0%   { transform: scale(1);   opacity: 0.55; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
+
+.animate-ring-pulse {
+  animation: ring-pulse 1.8s ease-out infinite;
+}
+
+/* ── Shimmer for video loading bar ── */
+@keyframes shimmer-bar {
+  0%   { background-position: -300% 0; }
+  100% { background-position: 300% 0; }
+}
+
+.shimmer-bar {
+  background: linear-gradient(
+    90deg,
+    rgba(37, 99, 235, 0.15) 0%,
+    rgba(37, 99, 235, 0.55) 40%,
+    rgba(124, 58, 237, 0.55) 60%,
+    rgba(37, 99, 235, 0.15) 100%
+  );
+  background-size: 300% 100%;
+  animation: shimmer-bar 2.4s ease-in-out infinite;
+}
+
+/* ── Liquid-flow gradient for action module taglines ── */
+@keyframes liquid-flow {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-liquid-flow {
+  background-image: linear-gradient(
+    90deg,
+    #22d3ee 0%,
+    #3b82f6 25%,
+    #a855f7 50%,
+    #3b82f6 75%,
+    #22d3ee 100%
+  );
+  background-size: 200% auto;
+  animation: liquid-flow 3.8s ease-in-out infinite;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Footer links: liquid-flow animated gradient underline ── */
+.footer-link {
+  position: relative;
+  display: inline-block;
+  text-decoration: none;
+  transition: color 0.28s ease;
+}
+
+.footer-link::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 1.5px;
+  border-radius: 1px;
+  background-image: linear-gradient(90deg, #22d3ee, #3b82f6, #a855f7, #22d3ee);
+  background-size: 200% auto;
+  animation: liquid-flow 3.8s ease-in-out infinite;
+  transition: width 0.32s ease;
+}
+
+.footer-link:hover {
+  color: #e2e8f0 !important;
+}
+
+.footer-link:hover::after {
+  width: 100%;
+}
+
+/* ── Google Maps iframe: grayscale → color on hover ── */
+.map-frame {
+  display: block;
+  filter: grayscale(100%) contrast(0.85) brightness(0.8);
+  transition: filter 0.5s ease;
+}
+
+.map-frame:hover {
+  filter: grayscale(0%) contrast(1) brightness(1);
+}
+
+/* ── Smooth scrolling ── */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ── Prevent browser autofill from painting over dark input backgrounds ── */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #0f172a inset !important;
+  -webkit-text-fill-color: #ffffff !important;
+  caret-color: #ffffff;
+  transition: background-color 9999s ease-in-out 0s;
+}

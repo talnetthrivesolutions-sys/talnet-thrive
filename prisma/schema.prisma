@@ -1,0 +1,529 @@
+// Talent Trive Solution — Enterprise Multi-Tenant Schema
+// Prisma 7 · PostgreSQL · Supports 1,000+ B2B tenants
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────
+
+enum UserRole {
+  SUPER_ADMIN
+  HR_MANAGER
+  EMPLOYEE
+}
+
+enum SubscriptionTier {
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+  ENTERPRISE_PLUS
+}
+
+enum JobStatus {
+  DRAFT
+  OPEN
+  ON_HOLD
+  CLOSED
+  CANCELLED
+}
+
+enum ApplicationStatus {
+  APPLIED
+  SCREENING
+  SHORTLISTED
+  INTERVIEW
+  OFFER_SENT
+  OFFER_ACCEPTED
+  HIRED
+  REJECTED
+  WITHDRAWN
+}
+
+enum InterviewType {
+  PHONE_SCREEN
+  APTITUDE_TEST
+  TECHNICAL_ROUND
+  HR_ROUND
+  PANEL_INTERVIEW
+  FINAL_ROUND
+}
+
+enum InterviewOutcome {
+  PENDING
+  PASSED
+  FAILED
+  NO_SHOW
+  RESCHEDULED
+}
+
+enum LabourCode {
+  WAGES                // Code on Wages 2019
+  INDUSTRIAL_RELATIONS // Industrial Relations Code 2020
+  SOCIAL_SECURITY      // Code on Social Security 2020
+  OSH                  // Occupational Safety, Health & Working Conditions Code 2020
+}
+
+enum ComplianceStatus {
+  COMPLIANT
+  NON_COMPLIANT
+  UNDER_REVIEW
+  REMEDIATION_IN_PROGRESS
+  NOT_APPLICABLE
+}
+
+enum NATSStatus {
+  REGISTERED
+  ACTIVE
+  COMPLETED
+  DROPPED
+  CANCELLED
+}
+
+enum AIQueryType {
+  DASHBOARD_QUERY
+  HIRING_RECOMMENDATION
+  PAYROLL_ANALYTICS
+  COMPLIANCE_CHECK
+  WORKFORCE_PREDICTION
+  DIGITAL_TWIN_SIMULATION
+  AUTOMATION_TRIGGER
+  REPORT_GENERATION
+}
+
+enum DemoStatus {
+  PENDING
+  CONTACTED
+  SCHEDULED
+  COMPLETED
+  DECLINED
+}
+
+enum ProfessionalTaxState {
+  ANDHRA_PRADESH
+  GUJARAT
+  KARNATAKA
+  KERALA
+  MADHYA_PRADESH
+  MAHARASHTRA
+  ODISHA
+  TAMIL_NADU
+  TELANGANA
+  WEST_BENGAL
+  OTHER
+}
+
+// ─────────────────────────────────────────
+// TENANT LAYER
+// ─────────────────────────────────────────
+
+/// One row per B2B client organisation. Azure Tenant ID is the immutable
+/// multi-tenancy key that maps an Azure AD login to a specific client silo.
+model Company {
+  id               String           @id @default(cuid())
+  name             String
+  domain           String           @unique // e.g. "acmecorp.com"
+  azureTenantId    String           @unique // maps Azure AD tenant → client row
+  logoUrl          String?
+  industry         String?
+  headcount        Int?
+  isActive         Boolean          @default(true)
+  subscriptionTier SubscriptionTier @default(ENTERPRISE)
+  dataRegion       String           @default("IN") // ISO country for data residency
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  // Relations
+  departments        Department[]
+  users              User[]
+  jobs               Job[]
+  salaryStructures   SalaryStructure[]
+  complianceRecords  LabourCodeCompliance[]
+  natsRecords        NATSApprenticeship[]
+  aiAuditLogs        AIAuditLog[]
+
+  @@index([azureTenantId])
+  @@index([domain])
+  @@index([isActive])
+}
+
+model Department {
+  id        String   @id @default(cuid())
+  name      String
+  code      String? // e.g. "ENG", "HR"
+  companyId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  users   User[]
+  jobs    Job[]
+
+  @@unique([companyId, name])
+  @@index([companyId])
+}
+
+// ─────────────────────────────────────────
+// IDENTITY LAYER
+// ─────────────────────────────────────────
+
+/// Every authenticated user is linked to an Azure AD OID (sub).
+/// azureAdSub is the stable, globally unique identifier from the id_token.
+model User {
+  id           String   @id @default(cuid())
+  azureAdSub   String   @unique // Azure AD Object ID / sub claim
+  email        String   @unique
+  name         String?
+  avatarUrl    String?
+  role         UserRole @default(EMPLOYEE)
+  isActive     Boolean  @default(true)
+  companyId    String
+  departmentId String?
+  lastLoginAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  company          Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  department       Department?       @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  candidateProfile CandidateProfile?
+  salaryStructure  SalaryStructure?
+  createdJobs      Job[]             @relation("JobCreatedBy")
+  interviews       Interview[]       @relation("InterviewerUser")
+  aiAuditLogs      AIAuditLog[]
+
+  @@index([companyId, role])
+  @@index([companyId, isActive])
+  @@index([azureAdSub])
+  @@index([email])
+}
+
+// ─────────────────────────────────────────
+// RECRUITMENT MODULE
+// ─────────────────────────────────────────
+
+model Job {
+  id           String    @id @default(cuid())
+  title        String
+  description  String    @db.Text
+  requirements String    @db.Text
+  location     String?
+  isRemote     Boolean   @default(false)
+  minSalary    Decimal?  @db.Decimal(15, 2)
+  maxSalary    Decimal?  @db.Decimal(15, 2)
+  currency     String    @default("INR")
+  openings     Int       @default(1)
+  status       JobStatus @default(DRAFT)
+  closingDate  DateTime?
+  companyId    String
+  departmentId String?
+  createdById  String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  company      Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  createdBy    User        @relation("JobCreatedBy", fields: [createdById], references: [id])
+  applications Application[]
+
+  @@index([companyId, status])
+  @@index([companyId, closingDate])
+  @@index([createdById])
+}
+
+/// Represents the candidate-side profile attached to a User account.
+/// Skills stored as a string array for fast tag-based queries.
+model CandidateProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  resumeUrl       String?
+  linkedInUrl     String?
+  portfolioUrl    String?
+  skills          String[] // tag array — indexed via GIN in migration
+  totalExperience Float    @default(0) // years, fractional OK
+  currentSalary   Decimal? @db.Decimal(15, 2)
+  expectedSalary  Decimal? @db.Decimal(15, 2)
+  currency        String   @default("INR")
+  currentLocation String?
+  noticePeriod    Int?     // days
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  applications Application[]
+
+  @@index([userId])
+}
+
+model Application {
+  id           String            @id @default(cuid())
+  jobId        String
+  candidateId  String
+  status       ApplicationStatus @default(APPLIED)
+  coverLetter  String?           @db.Text
+  aiScore      Float?            // 0–100, generated by AI screening
+  aiInsights   Json?             // structured insight blob from AI
+  referralCode String?
+  appliedAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  job        Job              @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  candidate  CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  interviews Interview[]
+
+  @@unique([jobId, candidateId]) // one application per candidate per job
+  @@index([jobId, status])
+  @@index([candidateId, status])
+}
+
+/// Each row is one interview stage in the pipeline.
+/// Structured feedback stored as JSON to support custom scorecard templates.
+model Interview {
+  id              String           @id @default(cuid())
+  applicationId   String
+  interviewerId   String
+  type            InterviewType
+  outcome         InterviewOutcome @default(PENDING)
+  scheduledAt     DateTime
+  durationMinutes Int              @default(60)
+  meetingLink     String?
+  notes           String?          @db.Text
+  scorecard       Json?            // e.g. { "communication": 4, "technical": 5 }
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  application  Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  interviewer  User        @relation("InterviewerUser", fields: [interviewerId], references: [id])
+
+  @@index([applicationId, type])
+  @@index([interviewerId, scheduledAt])
+}
+
+// ─────────────────────────────────────────
+// PAYROLL MODULE
+// ─────────────────────────────────────────
+
+/// Master salary record per employee. Child tables (PF / ESI / PT) hang off this.
+/// All monetary columns use DECIMAL(15,2) to avoid floating-point drift on payroll runs.
+model SalaryStructure {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  companyId        String
+  effectiveFrom    DateTime
+  effectiveTo      DateTime?
+  grossCTC         Decimal  @db.Decimal(15, 2) // Cost-to-Company (annual)
+  basicSalary      Decimal  @db.Decimal(15, 2) // ≥ 50% of gross per Wages Code
+  hra              Decimal  @db.Decimal(15, 2)
+  specialAllowance Decimal  @db.Decimal(15, 2)
+  lta              Decimal  @default(0) @db.Decimal(15, 2)
+  medicalAllowance Decimal  @default(0) @db.Decimal(15, 2)
+  performanceBonus Decimal  @default(0) @db.Decimal(15, 2)
+  totalDeductions  Decimal  @db.Decimal(15, 2) // PF + ESI + PT + TDS
+  netSalary        Decimal  @db.Decimal(15, 2) // take-home (monthly)
+  currency         String   @default("INR")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company         Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  pfContribution  PFContribution?
+  esiContribution ESIContribution?
+  professionalTax ProfessionalTax?
+
+  @@index([companyId])
+  @@index([userId, effectiveFrom])
+}
+
+/// Provident Fund — governed by EPF & MP Act 1952 and Social Security Code 2020.
+/// Employee + Employer each contribute 12% of basic; EPS carved out at 8.33%.
+model PFContribution {
+  id                String @id @default(cuid())
+  salaryStructureId String @unique
+  employeeUAN       String? // Universal Account Number
+  /// Employee share: 12% of basic salary (goes to EPF account)
+  employeeEPF       Decimal @db.Decimal(15, 2)
+  /// Employer EPF share: 3.67% of basic (12% minus EPS portion)
+  employerEPF       Decimal @db.Decimal(15, 2)
+  /// Employer Pension Scheme: 8.33% of basic (capped at ₹1,250/month)
+  employerEPS       Decimal @db.Decimal(15, 2)
+  /// Employee Deposit Linked Insurance: 0.5% of basic by employer
+  employerEDLI      Decimal @db.Decimal(15, 2)
+  /// Admin charges: 0.5% of basic (min ₹500/month per establishment)
+  adminCharges      Decimal @db.Decimal(10, 2)
+  totalMonthly      Decimal @db.Decimal(15, 2)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  salaryStructure SalaryStructure @relation(fields: [salaryStructureId], references: [id], onDelete: Cascade)
+
+  @@index([employeeUAN])
+}
+
+/// ESI — Employee State Insurance Act 1948 / Social Security Code 2020.
+/// Applicable only when gross monthly salary ≤ ₹21,000.
+model ESIContribution {
+  id                String   @id @default(cuid())
+  salaryStructureId String   @unique
+  esicInsuranceNo   String?  // 17-digit ESIC insurance number
+  /// Eligibility ceiling: gross ≤ ₹21,000/month
+  isEligible        Boolean  @default(true)
+  /// Employee share: 0.75% of gross wages
+  employeeESI       Decimal  @db.Decimal(10, 2)
+  /// Employer share: 3.25% of gross wages
+  employerESI       Decimal  @db.Decimal(10, 2)
+  totalMonthly      Decimal  @db.Decimal(10, 2)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  salaryStructure SalaryStructure @relation(fields: [salaryStructureId], references: [id], onDelete: Cascade)
+
+  @@index([esicInsuranceNo])
+}
+
+/// Professional Tax — state-level levy. Slabs vary by state and salary range.
+/// Annual ceiling ₹2,500 (Maharashtra) to ₹2,400 (Karnataka), etc.
+model ProfessionalTax {
+  id                String               @id @default(cuid())
+  salaryStructureId String               @unique
+  state             ProfessionalTaxState
+  /// Monthly deduction amount per applicable state slab
+  monthlyDeduction  Decimal              @db.Decimal(8, 2)
+  annualDeduction   Decimal              @db.Decimal(10, 2)
+  ptRegistrationNo  String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  salaryStructure SalaryStructure @relation(fields: [salaryStructureId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────
+// COMPLIANCE MODULE
+// ─────────────────────────────────────────
+
+/// Tracks a company's compliance posture against each of the
+/// 4 New Labour Codes notified under the Labour Code reform (2019–2020).
+/// One row per (company × labour code) — updated after each audit cycle.
+model LabourCodeCompliance {
+  id                String           @id @default(cuid())
+  companyId         String
+  code              LabourCode
+  status            ComplianceStatus @default(UNDER_REVIEW)
+  registrationNo    String?          // e.g. LWF or Shram Suvidha number
+  lastAuditDate     DateTime?
+  nextAuditDate     DateTime?
+  /// Audit score 0–100; used by the AI Digital Twin to flag risk
+  auditScore        Float?
+  findings          String?          @db.Text // auditor narrative
+  correctiveActions String?          @db.Text
+  attachmentUrls    String[]         // signed S3/Blob URLs for evidence docs
+  reviewedById      String?          // HR Manager who signed off
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, code]) // one compliance record per code per tenant
+  @@index([companyId, status])
+  @@index([nextAuditDate])
+}
+
+/// National Apprenticeship Training Scheme (NATS) — managed by BOAT / BOPT.
+/// Employers with 40+ workers in specified industries must enrol apprentices.
+model NATSApprenticeship {
+  id              String     @id @default(cuid())
+  companyId       String
+  apprenticeName  String
+  apprenticeRefNo String     // NATS portal reference
+  trade           String     // e.g. "Software Testing", "Data Entry Operator"
+  establishmentId String?    // NATS employer establishment code
+  status          NATSStatus @default(REGISTERED)
+  startDate       DateTime
+  endDate         DateTime?
+  /// Monthly stipend (minimum per NATS schedule)
+  stipend         Decimal?   @db.Decimal(10, 2)
+  currency        String     @default("INR")
+  contractUrl     String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, status])
+  @@index([apprenticeRefNo])
+}
+
+// ─────────────────────────────────────────
+// AI AUDIT MODULE  (Digital Twin)
+// ─────────────────────────────────────────
+
+/// Immutable audit log for every Agentic AI interaction — used to power
+/// the Digital Twin analytics dashboard and provide explainability trails.
+/// Rows are append-only; no updatedAt by design.
+model AIAuditLog {
+  id             String      @id @default(cuid())
+  companyId      String
+  userId         String?     // null for system-triggered automations
+  sessionId      String?     // browser/tab correlation UUID
+  queryType      AIQueryType
+  /// Raw prompt / instruction sent to the AI model
+  prompt         String      @db.Text
+  /// Structured JSON response from the model
+  response       Json?
+  modelId        String      @default("claude-sonnet-4-6")
+  inputTokens    Int?
+  outputTokens   Int?
+  totalTokens    Int?
+  latencyMs      Int?
+  /// Model confidence 0.0–1.0 where available
+  confidence     Float?
+  /// Taxonomy tags for analytics roll-ups (e.g. ["payroll","esi","query"])
+  tags           String[]
+  /// Extra context — module name, entity IDs, filters applied, etc.
+  metadata       Json?
+  /// True when this interaction touched a Digital Twin simulation
+  isDigitalTwin  Boolean     @default(false)
+  /// True when AI triggered a downstream automation (workflow, email, etc.)
+  triggeredAction Boolean    @default(false)
+  createdAt      DateTime    @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // Compound indexes for dashboard time-series queries
+  @@index([companyId, queryType, createdAt])
+  @@index([companyId, createdAt])
+  @@index([userId, createdAt])
+  @@index([sessionId])
+  @@index([isDigitalTwin, createdAt])
+}
+
+// ─────────────────────────────────────────
+// LEAD GENERATION MODULE
+// ─────────────────────────────────────────
+
+/// Inbound demo / contact requests submitted via the marketing site.
+/// Append-only for sales pipeline; status updated by the sales team.
+model DemoRequest {
+  id        String     @id @default(cuid())
+  seq       Int        @unique @default(autoincrement()) // rolling TT-YYYY-XXXX counter
+  name      String
+  company   String
+  email     String
+  phone     String?
+  service   String?    // selected service interest from the form
+  message   String?    @db.Text
+  status    DemoStatus @default(PENDING)
+  ipAddress String?    // captured server-side for spam filtering
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([status, createdAt])
+  @@index([email])
+}

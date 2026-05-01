@@ -1,0 +1,77 @@
+name: Azure Static Web Apps — CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    branches: [main]
+
+# ── Deploy job ─────────────────────────────────────────────────────────────────
+jobs:
+  build_and_deploy:
+    if: >
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' && github.event.action != 'closed')
+    runs-on: ubuntu-latest
+    name: Build and Deploy
+
+    steps:
+      # 1. Checkout source
+      - uses: actions/checkout@v4
+
+      # 2. Node 20 LTS — matches Azure SWA runtime
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      # 3. Clean reproducible install
+      - name: Install dependencies
+        run: npm ci
+
+      # 4. Generate Prisma client (reads schema, does NOT need a live DB)
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      # 5. Apply any pending migrations to the production Neon database
+      - name: Run database migrations
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      # 6. Build + deploy via the official Azure SWA action.
+      #    The action's internal build re-runs `npm ci && npm run build`
+      #    but the generated Prisma client persists on disk from step 4,
+      #    so the build always finds it.
+      - name: Build and Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        env:
+          # Runtime environment variables injected into the Next.js build
+          DATABASE_URL:             ${{ secrets.DATABASE_URL }}
+          NEXTAUTH_URL:             ${{ secrets.NEXTAUTH_URL }}
+          NEXTAUTH_SECRET:          ${{ secrets.NEXTAUTH_SECRET }}
+          AZURE_AD_CLIENT_ID:       ${{ secrets.AZURE_AD_CLIENT_ID }}
+          AZURE_AD_TENANT_ID:       ${{ secrets.AZURE_AD_TENANT_ID }}
+          AZURE_AD_CLIENT_SECRET:   ${{ secrets.AZURE_AD_CLIENT_SECRET }}
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          repo_token:     ${{ secrets.GITHUB_TOKEN }}
+          action:         "upload"
+          app_location:   "/"    # repo root contains package.json
+          api_location:   ""     # Next.js API routes → auto-detected as Functions
+          output_location: ""    # SWA manages Next.js output internally
+
+# ── PR cleanup job ─────────────────────────────────────────────────────────────
+  close_pull_request:
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    name: Close Pull Request Environment
+
+    steps:
+      - name: Close staging environment
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          action: "close"
