@@ -7,6 +7,7 @@ const withPWA = require("next-pwa")({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: "standalone",
   reactStrictMode: true,
   // Silences the next-pwa webpack-config conflict in Next.js 16
   turbopack: {},

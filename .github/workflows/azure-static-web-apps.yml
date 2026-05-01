@@ -35,16 +35,10 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
-      # 5. Apply any pending migrations to the production Neon database
-      - name: Run database migrations
-        run: npx prisma migrate deploy
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-
-      # 6. Build + deploy via the official Azure SWA action.
-      #    The action's internal build re-runs `npm ci && npm run build`
-      #    but the generated Prisma client persists on disk from step 4,
-      #    so the build always finds it.
+      # 5. Build + deploy via the official Azure SWA action.
+      #    The action's internal Oryx build re-runs `npm ci && npm run build`
+      #    (which includes `prisma generate`), so migrations must be applied
+      #    manually or via a separate CD step — never from this workflow.
       - name: Build and Deploy to Azure Static Web Apps
         uses: Azure/static-web-apps-deploy@v1
         env:
