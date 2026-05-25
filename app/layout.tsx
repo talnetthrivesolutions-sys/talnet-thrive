@@ -15,6 +15,7 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
+  // Fresh build trigger
   title: "Talnet Thrive Solutions Pvt. Ltd. | Recruitment, Payroll & Compliance",
   description: "Talnet Thrive Solutions Pvt. Ltd. is a Bangalore-based HR partner for recruitment, payroll processing, PF, ESI, PT and labour compliance support.",
   manifest: "/manifest.json",
