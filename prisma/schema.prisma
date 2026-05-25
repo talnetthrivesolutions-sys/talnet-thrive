@@ -2,7 +2,7 @@
 // Prisma 7 · PostgreSQL · Supports 1,000+ B2B tenants
 
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../app/generated/prisma"
 }
 

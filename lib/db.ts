@@ -1,6 +1,6 @@
 import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "@/app/generated/prisma/client";
+import { PrismaClient } from "../app/generated/prisma/client";
 
 // Prisma 7 requires a Driver Adapter for direct database connections.
 // We use @prisma/adapter-pg backed by a pg.Pool for connection pooling.
