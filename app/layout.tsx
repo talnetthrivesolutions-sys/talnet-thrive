@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Manrope } from "next/font/google";
-import "./globals.css?ref=final_update";
+import "./globals.css";
 
 const inter = Inter({
   subsets: ["latin"],
