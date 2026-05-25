@@ -70,7 +70,7 @@ export default function LandingPage() {
           <div className="wrap hero-grid">
             <div>
               <span className="tag">Strategic HR • Recruitment • Payroll • Compliance</span>
-              <h1 style={{ color: '#0f2b46', fontWeight: 'bold' }}>Professional HR support for hiring, payroll and compliance.</h1>
+              <h1 className="text-[#0f2b46] font-bold">Professional HR support for hiring, payroll and compliance.</h1>
               <p className="lead">
                 Talnet Thrive Solutions Pvt. Ltd. helps businesses build reliable teams, run smoother payroll cycles, and manage PF, ESI, PT and labour-related queries through a practical HR partnership model.
               </p>
