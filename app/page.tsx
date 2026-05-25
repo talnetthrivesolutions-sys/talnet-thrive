@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import ContactForm from "@/components/ContactForm";
 
 export default function LandingPage() {
+  // Deployment trigger: Updated environment secrets and simplified workflow
   const [menuOpen, setMenuOpen] = useState(false);
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
 
