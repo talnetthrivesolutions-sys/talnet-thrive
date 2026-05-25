@@ -25,6 +25,19 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react", "framer-motion", "three"],
   },
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "no-store, max-age=0",
+          },
+        ],
+      },
+    ];
+  },
 };
 
 module.exports = withPWA(nextConfig);
