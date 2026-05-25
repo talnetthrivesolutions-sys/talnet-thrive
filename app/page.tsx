@@ -27,8 +27,8 @@ export default function LandingPage() {
         </div>
       </div>
 
-      <header className="site-header">
-        <nav className="wrap nav">
+      <header className="site-header bg-[#0f2b46] text-white">
+        <nav className="wrap nav flex justify-between items-center">
           <a href="#home" className="brand" aria-label="Talnet Thrive Solutions home">
             <img 
               className="brand-logo" 
