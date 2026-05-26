@@ -27,12 +27,13 @@ export default function LandingPage() {
         </div>
       </div>
 
-      <header className="site-header bg-[#0f2b46] text-white">
+      <header className="site-header bg-[#0f2b46] text-white" style={{ padding: '12px 0' }}>
         <nav className="wrap nav flex justify-between items-center">
           <a href="#home" className="brand" aria-label="Talnet Thrive Solutions home">
             <img 
               className="brand-logo" 
-              src="https://i.ibb.co/LzdhXqBf/logo-talnet.png" style={{ width: '154px', height: '76px', objectFit: 'contain' }} 
+              src="/img/logo.png" 
+              style={{ height: '65px', width: 'auto', objectFit: 'contain' }} 
               alt="Talnet Thrive logo"
             />
             <span className="brand-text">
@@ -99,7 +100,7 @@ export default function LandingPage() {
             <aside className="hero-card executive-hero-card" aria-label="Talnet Thrive service summary">
               <div className="exec-top">
                 <div className="exec-logo">
-                  <img src="https://i.ibb.co/LzdhXqBf/logo-talnet.png" style={{ width: '154px', height: '76px', objectFit: 'contain' }} 
+                  <img src="/img/logo.png" style={{ height: '65px', width: 'auto', objectFit: 'contain' }} 
                     alt="Talnet Thrive logo"
                   />
                 </div>
